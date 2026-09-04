@@ -19,7 +19,7 @@ jobs:
 
       - name: Build
         run: |
-          make libquickjs.a CFLAGS_OPT="-O2" 2>&1
+          make libquickjs.a
           mkdir -p dist
           cp libquickjs.a dist/libquickjs-linux-x86_64.a
           cp quickjs.h quickjs-libc.h dist/
@@ -45,8 +45,7 @@ jobs:
         run: |
           make libquickjs.a \
             CC=aarch64-linux-gnu-gcc \
-            AR=aarch64-linux-gnu-ar \
-            CFLAGS_OPT="-O2" 2>&1
+            AR=aarch64-linux-gnu-ar
           mkdir -p dist
           cp libquickjs.a dist/libquickjs-linux-aarch64.a
           cp quickjs.h quickjs-libc.h dist/
@@ -72,8 +71,7 @@ jobs:
         run: |
           make libquickjs.a \
             CC=arm-linux-gnueabihf-gcc \
-            AR=arm-linux-gnueabihf-ar \
-            CFLAGS_OPT="-O2" 2>&1
+            AR=arm-linux-gnueabihf-ar
           mkdir -p dist
           cp libquickjs.a dist/libquickjs-linux-armv7.a
           cp quickjs.h quickjs-libc.h dist/
@@ -94,8 +92,7 @@ jobs:
         run: |
           make libquickjs.a \
             CC="clang -target x86_64-apple-macos10.15" \
-            AR=ar \
-            CFLAGS_OPT="-O2" 2>&1
+            AR=ar
           cp libquickjs.a libquickjs-x86_64.a
           make clean
 
@@ -103,8 +100,7 @@ jobs:
         run: |
           make libquickjs.a \
             CC="clang -target arm64-apple-macos11" \
-            AR=ar \
-            CFLAGS_OPT="-O2" 2>&1
+            AR=ar
           cp libquickjs.a libquickjs-arm64.a
 
       - name: Lipo universal
@@ -134,8 +130,7 @@ jobs:
           SDK=$(xcrun --sdk iphoneos --show-sdk-path)
           make libquickjs.a \
             CC="clang -target arm64-apple-ios13.0 -isysroot $SDK" \
-            AR=ar \
-            CFLAGS_OPT="-O2" 2>&1
+            AR=ar
           mkdir -p dist
           cp libquickjs.a dist/libquickjs-ios-arm64.a
           cp quickjs.h quickjs-libc.h dist/
@@ -157,8 +152,7 @@ jobs:
           SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
           make libquickjs.a \
             CC="clang -target x86_64-apple-ios13.0-simulator -isysroot $SDK" \
-            AR=ar \
-            CFLAGS_OPT="-O2" 2>&1
+            AR=ar
           cp libquickjs.a libquickjs-sim-x86_64.a
           make clean
 
@@ -167,8 +161,7 @@ jobs:
           SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
           make libquickjs.a \
             CC="clang -target arm64-apple-ios13.0-simulator -isysroot $SDK" \
-            AR=ar \
-            CFLAGS_OPT="-O2" 2>&1
+            AR=ar
           cp libquickjs.a libquickjs-sim-arm64.a
 
       - name: Lipo universal simulator
@@ -196,8 +189,7 @@ jobs:
           SDK=$(xcrun --sdk appletvos --show-sdk-path)
           make libquickjs.a \
             CC="clang -target arm64-apple-tvos14.0 -isysroot $SDK" \
-            AR=ar \
-            CFLAGS_OPT="-O2" 2>&1
+            AR=ar
           mkdir -p dist
           cp libquickjs.a dist/libquickjs-tvos-arm64.a
           cp quickjs.h quickjs-libc.h dist/
@@ -219,8 +211,7 @@ jobs:
           SDK=$(xcrun --sdk appletvsimulator --show-sdk-path)
           make libquickjs.a \
             CC="clang -target x86_64-apple-tvos14.0-simulator -isysroot $SDK" \
-            AR=ar \
-            CFLAGS_OPT="-O2" 2>&1
+            AR=ar
           cp libquickjs.a libquickjs-tvsim-x86_64.a
           make clean
 
@@ -229,8 +220,7 @@ jobs:
           SDK=$(xcrun --sdk appletvsimulator --show-sdk-path)
           make libquickjs.a \
             CC="clang -target arm64-apple-tvos14.0-simulator -isysroot $SDK" \
-            AR=ar \
-            CFLAGS_OPT="-O2" 2>&1
+            AR=ar
           cp libquickjs.a libquickjs-tvsim-arm64.a
 
       - name: Lipo universal tvOS simulator
@@ -262,8 +252,7 @@ jobs:
         run: |
           make libquickjs.a \
             CONFIG_WIN32=y \
-            CROSS_PREFIX=x86_64-w64-mingw32- \
-            CFLAGS_OPT="-O2" 2>&1
+            CROSS_PREFIX=x86_64-w64-mingw32-
           mkdir -p dist
           cp libquickjs.a dist/libquickjs-windows-x86_64.a
           cp quickjs.h quickjs-libc.h dist/
@@ -273,25 +262,25 @@ jobs:
           name: libquickjs-windows-x86_64
           path: dist/
 
-  # ── Windows arm64 (LLVM 交叉编译) ─────────────────────────────
+  # ── Windows arm64 (llvm-mingw 交叉编译) ───────────────────────
+  # llvm-mingw 自带完整的 Windows arm64 sysroot，不依赖系统 glibc 头文件
   windows-arm64:
     name: Windows arm64
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install LLVM + clang
+      - name: Install llvm-mingw
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang lld llvm make
+          wget -q https://github.com/mstorsjo/llvm-mingw/releases/download/20240619/llvm-mingw-20240619-ucrt-ubuntu-20.04-x86_64.tar.xz
+          tar -xf llvm-mingw-*.tar.xz
+          echo "$PWD/llvm-mingw-20240619-ucrt-ubuntu-20.04-x86_64/bin" >> $GITHUB_PATH
 
       - name: Build
         run: |
           make libquickjs.a \
-            CC="clang --target=aarch64-pc-windows-gnu" \
-            AR=llvm-ar \
-            CFLAGS_OPT="-O2" \
-            HOST_CC=gcc 2>&1
+            CONFIG_WIN32=y \
+            CROSS_PREFIX=aarch64-w64-mingw32-
           mkdir -p dist
           cp libquickjs.a dist/libquickjs-windows-arm64.a
           cp quickjs.h quickjs-libc.h dist/
@@ -320,9 +309,9 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
           TOOLCHAIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64
-          CC=$TOOLCHAIN/bin/aarch64-linux-android21-clang
-          AR=$TOOLCHAIN/bin/llvm-ar
-          make libquickjs.a CC="$CC" AR="$AR" CFLAGS_OPT="-O2" 2>&1
+          make libquickjs.a \
+            CC=$TOOLCHAIN/bin/aarch64-linux-android21-clang \
+            AR=$TOOLCHAIN/bin/llvm-ar
           mkdir -p dist
           cp libquickjs.a dist/libquickjs-android-arm64-v8a.a
           cp quickjs.h quickjs-libc.h dist/
@@ -351,9 +340,9 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
           TOOLCHAIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64
-          CC=$TOOLCHAIN/bin/armv7a-linux-androideabi21-clang
-          AR=$TOOLCHAIN/bin/llvm-ar
-          make libquickjs.a CC="$CC" AR="$AR" CFLAGS_OPT="-O2" 2>&1
+          make libquickjs.a \
+            CC=$TOOLCHAIN/bin/armv7a-linux-androideabi21-clang \
+            AR=$TOOLCHAIN/bin/llvm-ar
           mkdir -p dist
           cp libquickjs.a dist/libquickjs-android-armeabi-v7a.a
           cp quickjs.h quickjs-libc.h dist/
@@ -382,9 +371,9 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
           TOOLCHAIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64
-          CC=$TOOLCHAIN/bin/x86_64-linux-android21-clang
-          AR=$TOOLCHAIN/bin/llvm-ar
-          make libquickjs.a CC="$CC" AR="$AR" CFLAGS_OPT="-O2" 2>&1
+          make libquickjs.a \
+            CC=$TOOLCHAIN/bin/x86_64-linux-android21-clang \
+            AR=$TOOLCHAIN/bin/llvm-ar
           mkdir -p dist
           cp libquickjs.a dist/libquickjs-android-x86_64.a
           cp quickjs.h quickjs-libc.h dist/
@@ -408,15 +397,20 @@ jobs:
 
       - name: Build
         run: |
-          emcc -O2 -c quickjs.c      -o quickjs.o
-          emcc -O2 -c dtoa.c         -o dtoa.o
-          emcc -O2 -c libregexp.c    -o libregexp.o
-          emcc -O2 -c libunicode.c   -o libunicode.o
-          emcc -O2 -c cutils.c       -o cutils.o
-          emcc -O2 -c quickjs-libc.c -o quickjs-libc.o
-          emar rcs libquickjs-wasm.a quickjs.o dtoa.o libregexp.o libunicode.o cutils.o quickjs-libc.o
+          # emcc 不走 Makefile（Makefile 用的 gcc 特性与 emcc 不完全兼容）
+          # 手动读取 VERSION 传给编译器
+          VERSION=$(cat VERSION)
+          CFLAGS="-O2 -D_GNU_SOURCE -DCONFIG_VERSION=\"\\\"$VERSION\\\"\""
+          eval emcc $CFLAGS -c quickjs.c      -o quickjs.o
+          eval emcc $CFLAGS -c dtoa.c         -o dtoa.o
+          eval emcc $CFLAGS -c libregexp.c    -o libregexp.o
+          eval emcc $CFLAGS -c libunicode.c   -o libunicode.o
+          eval emcc $CFLAGS -c cutils.c       -o cutils.o
+          eval emcc $CFLAGS -c quickjs-libc.c -o quickjs-libc.o
+          emar rcs libquickjs-wasm.a \
+            quickjs.o dtoa.o libregexp.o libunicode.o cutils.o quickjs-libc.o
           mkdir -p dist
-          cp libquickjs-wasm.a dist/
+          cp libquickjs-wasm.a dist/libquickjs-wasm.a
           cp quickjs.h quickjs-libc.h dist/
 
       - uses: actions/upload-artifact@v4
@@ -424,7 +418,7 @@ jobs:
           name: libquickjs-wasm
           path: dist/
 
-  # ── 汇总所有产物打包 release ──────────────────────────────────
+  # ── 汇总所有产物打包 ──────────────────────────────────────────
   package:
     name: Package All
     runs-on: ubuntu-22.04
@@ -454,10 +448,8 @@ jobs:
       - name: Organize release layout
         run: |
           mkdir -p release/include
-          # 头文件只需一份
           cp quickjs.h quickjs-libc.h release/include/
 
-          # 按平台分目录
           declare -A MAP=(
             ["libquickjs-linux-x86_64"]="linux/x86_64"
             ["libquickjs-linux-aarch64"]="linux/aarch64"
@@ -481,10 +473,9 @@ jobs:
             find "all-artifacts/$artifact" -name "*.a" -exec cp {} "$dest/" \;
           done
 
-          # 写版本信息
           echo "QuickJS $(cat VERSION) - $(date -u +%Y-%m-%d)" > release/VERSION.txt
           echo "" >> release/VERSION.txt
-          echo "Platforms:" >> release/VERSION.txt
+          echo "Libraries:" >> release/VERSION.txt
           find release -name "*.a" | sort >> release/VERSION.txt
           cat release/VERSION.txt
 
