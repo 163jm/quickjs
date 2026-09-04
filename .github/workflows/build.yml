@@ -1,0 +1,512 @@
+name: Build QuickJS Static Libraries
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+  release:
+    types: [ created ]
+
+jobs:
+
+  # ── Linux x86_64 ──────────────────────────────────────────────
+  linux-x86_64:
+    name: Linux x86_64
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y gcc make
+
+      - name: Build
+        run: |
+          make libquickjs.a CFLAGS_OPT="-O2" 2>&1
+          mkdir -p dist
+          cp libquickjs.a dist/libquickjs-linux-x86_64.a
+          cp quickjs.h quickjs-libc.h dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libquickjs-linux-x86_64
+          path: dist/
+
+  # ── Linux aarch64 (交叉编译) ──────────────────────────────────
+  linux-aarch64:
+    name: Linux aarch64
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cross toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu make
+
+      - name: Build
+        run: |
+          make libquickjs.a \
+            CC=aarch64-linux-gnu-gcc \
+            AR=aarch64-linux-gnu-ar \
+            CFLAGS_OPT="-O2" 2>&1
+          mkdir -p dist
+          cp libquickjs.a dist/libquickjs-linux-aarch64.a
+          cp quickjs.h quickjs-libc.h dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libquickjs-linux-aarch64
+          path: dist/
+
+  # ── Linux armv7 (交叉编译) ────────────────────────────────────
+  linux-armv7:
+    name: Linux armv7
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cross toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-linux-gnueabihf make
+
+      - name: Build
+        run: |
+          make libquickjs.a \
+            CC=arm-linux-gnueabihf-gcc \
+            AR=arm-linux-gnueabihf-ar \
+            CFLAGS_OPT="-O2" 2>&1
+          mkdir -p dist
+          cp libquickjs.a dist/libquickjs-linux-armv7.a
+          cp quickjs.h quickjs-libc.h dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libquickjs-linux-armv7
+          path: dist/
+
+  # ── macOS x86_64 + arm64 (Universal) ─────────────────────────
+  macos-universal:
+    name: macOS Universal (x86_64 + arm64)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build x86_64
+        run: |
+          make libquickjs.a \
+            CC="clang -target x86_64-apple-macos10.15" \
+            AR=ar \
+            CFLAGS_OPT="-O2" 2>&1
+          cp libquickjs.a libquickjs-x86_64.a
+          make clean
+
+      - name: Build arm64
+        run: |
+          make libquickjs.a \
+            CC="clang -target arm64-apple-macos11" \
+            AR=ar \
+            CFLAGS_OPT="-O2" 2>&1
+          cp libquickjs.a libquickjs-arm64.a
+
+      - name: Lipo universal
+        run: |
+          lipo -create libquickjs-x86_64.a libquickjs-arm64.a \
+               -output libquickjs-macos-universal.a
+          mkdir -p dist
+          cp libquickjs-macos-universal.a dist/
+          cp libquickjs-x86_64.a dist/libquickjs-macos-x86_64.a
+          cp libquickjs-arm64.a  dist/libquickjs-macos-arm64.a
+          cp quickjs.h quickjs-libc.h dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libquickjs-macos
+          path: dist/
+
+  # ── iOS arm64 ─────────────────────────────────────────────────
+  ios-arm64:
+    name: iOS arm64
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          make libquickjs.a \
+            CC="clang -target arm64-apple-ios13.0 -isysroot $SDK" \
+            AR=ar \
+            CFLAGS_OPT="-O2" 2>&1
+          mkdir -p dist
+          cp libquickjs.a dist/libquickjs-ios-arm64.a
+          cp quickjs.h quickjs-libc.h dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libquickjs-ios-arm64
+          path: dist/
+
+  # ── iOS Simulator (x86_64 + arm64 Universal) ──────────────────
+  ios-simulator:
+    name: iOS Simulator Universal
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build x86_64 sim
+        run: |
+          SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
+          make libquickjs.a \
+            CC="clang -target x86_64-apple-ios13.0-simulator -isysroot $SDK" \
+            AR=ar \
+            CFLAGS_OPT="-O2" 2>&1
+          cp libquickjs.a libquickjs-sim-x86_64.a
+          make clean
+
+      - name: Build arm64 sim
+        run: |
+          SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
+          make libquickjs.a \
+            CC="clang -target arm64-apple-ios13.0-simulator -isysroot $SDK" \
+            AR=ar \
+            CFLAGS_OPT="-O2" 2>&1
+          cp libquickjs.a libquickjs-sim-arm64.a
+
+      - name: Lipo universal simulator
+        run: |
+          lipo -create libquickjs-sim-x86_64.a libquickjs-sim-arm64.a \
+               -output libquickjs-ios-simulator-universal.a
+          mkdir -p dist
+          cp libquickjs-ios-simulator-universal.a dist/
+          cp quickjs.h quickjs-libc.h dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libquickjs-ios-simulator
+          path: dist/
+
+  # ── tvOS arm64 ────────────────────────────────────────────────
+  tvos-arm64:
+    name: tvOS arm64
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          SDK=$(xcrun --sdk appletvos --show-sdk-path)
+          make libquickjs.a \
+            CC="clang -target arm64-apple-tvos14.0 -isysroot $SDK" \
+            AR=ar \
+            CFLAGS_OPT="-O2" 2>&1
+          mkdir -p dist
+          cp libquickjs.a dist/libquickjs-tvos-arm64.a
+          cp quickjs.h quickjs-libc.h dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libquickjs-tvos-arm64
+          path: dist/
+
+  # ── tvOS Simulator ────────────────────────────────────────────
+  tvos-simulator:
+    name: tvOS Simulator Universal
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build x86_64 sim
+        run: |
+          SDK=$(xcrun --sdk appletvsimulator --show-sdk-path)
+          make libquickjs.a \
+            CC="clang -target x86_64-apple-tvos14.0-simulator -isysroot $SDK" \
+            AR=ar \
+            CFLAGS_OPT="-O2" 2>&1
+          cp libquickjs.a libquickjs-tvsim-x86_64.a
+          make clean
+
+      - name: Build arm64 sim
+        run: |
+          SDK=$(xcrun --sdk appletvsimulator --show-sdk-path)
+          make libquickjs.a \
+            CC="clang -target arm64-apple-tvos14.0-simulator -isysroot $SDK" \
+            AR=ar \
+            CFLAGS_OPT="-O2" 2>&1
+          cp libquickjs.a libquickjs-tvsim-arm64.a
+
+      - name: Lipo universal tvOS simulator
+        run: |
+          lipo -create libquickjs-tvsim-x86_64.a libquickjs-tvsim-arm64.a \
+               -output libquickjs-tvos-simulator-universal.a
+          mkdir -p dist
+          cp libquickjs-tvos-simulator-universal.a dist/
+          cp quickjs.h quickjs-libc.h dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libquickjs-tvos-simulator
+          path: dist/
+
+  # ── Windows x86_64 (MinGW 交叉编译) ──────────────────────────
+  windows-x86_64:
+    name: Windows x86_64
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MinGW
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mingw-w64 make
+
+      - name: Build
+        run: |
+          make libquickjs.a \
+            CONFIG_WIN32=y \
+            CROSS_PREFIX=x86_64-w64-mingw32- \
+            CFLAGS_OPT="-O2" 2>&1
+          mkdir -p dist
+          cp libquickjs.a dist/libquickjs-windows-x86_64.a
+          cp quickjs.h quickjs-libc.h dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libquickjs-windows-x86_64
+          path: dist/
+
+  # ── Windows arm64 (LLVM 交叉编译) ─────────────────────────────
+  windows-arm64:
+    name: Windows arm64
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install LLVM + clang
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld llvm make
+
+      - name: Build
+        run: |
+          make libquickjs.a \
+            CC="clang --target=aarch64-pc-windows-gnu" \
+            AR=llvm-ar \
+            CFLAGS_OPT="-O2" \
+            HOST_CC=gcc 2>&1
+          mkdir -p dist
+          cp libquickjs.a dist/libquickjs-windows-arm64.a
+          cp quickjs.h quickjs-libc.h dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libquickjs-windows-arm64
+          path: dist/
+
+  # ── Android arm64-v8a ─────────────────────────────────────────
+  android-arm64-v8a:
+    name: Android arm64-v8a
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r27c
+          local-cache: true
+
+      - name: Build
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          TOOLCHAIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64
+          CC=$TOOLCHAIN/bin/aarch64-linux-android21-clang
+          AR=$TOOLCHAIN/bin/llvm-ar
+          make libquickjs.a CC="$CC" AR="$AR" CFLAGS_OPT="-O2" 2>&1
+          mkdir -p dist
+          cp libquickjs.a dist/libquickjs-android-arm64-v8a.a
+          cp quickjs.h quickjs-libc.h dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libquickjs-android-arm64-v8a
+          path: dist/
+
+  # ── Android armeabi-v7a ───────────────────────────────────────
+  android-armeabi-v7a:
+    name: Android armeabi-v7a
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r27c
+          local-cache: true
+
+      - name: Build
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          TOOLCHAIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64
+          CC=$TOOLCHAIN/bin/armv7a-linux-androideabi21-clang
+          AR=$TOOLCHAIN/bin/llvm-ar
+          make libquickjs.a CC="$CC" AR="$AR" CFLAGS_OPT="-O2" 2>&1
+          mkdir -p dist
+          cp libquickjs.a dist/libquickjs-android-armeabi-v7a.a
+          cp quickjs.h quickjs-libc.h dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libquickjs-android-armeabi-v7a
+          path: dist/
+
+  # ── Android x86_64 ────────────────────────────────────────────
+  android-x86_64:
+    name: Android x86_64
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r27c
+          local-cache: true
+
+      - name: Build
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          TOOLCHAIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64
+          CC=$TOOLCHAIN/bin/x86_64-linux-android21-clang
+          AR=$TOOLCHAIN/bin/llvm-ar
+          make libquickjs.a CC="$CC" AR="$AR" CFLAGS_OPT="-O2" 2>&1
+          mkdir -p dist
+          cp libquickjs.a dist/libquickjs-android-x86_64.a
+          cp quickjs.h quickjs-libc.h dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libquickjs-android-x86_64
+          path: dist/
+
+  # ── WASM (Emscripten) ─────────────────────────────────────────
+  wasm:
+    name: WebAssembly (WASM)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.68
+
+      - name: Build
+        run: |
+          emcc -O2 -c quickjs.c      -o quickjs.o
+          emcc -O2 -c dtoa.c         -o dtoa.o
+          emcc -O2 -c libregexp.c    -o libregexp.o
+          emcc -O2 -c libunicode.c   -o libunicode.o
+          emcc -O2 -c cutils.c       -o cutils.o
+          emcc -O2 -c quickjs-libc.c -o quickjs-libc.o
+          emar rcs libquickjs-wasm.a quickjs.o dtoa.o libregexp.o libunicode.o cutils.o quickjs-libc.o
+          mkdir -p dist
+          cp libquickjs-wasm.a dist/
+          cp quickjs.h quickjs-libc.h dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: libquickjs-wasm
+          path: dist/
+
+  # ── 汇总所有产物打包 release ──────────────────────────────────
+  package:
+    name: Package All
+    runs-on: ubuntu-22.04
+    needs:
+      - linux-x86_64
+      - linux-aarch64
+      - linux-armv7
+      - macos-universal
+      - ios-arm64
+      - ios-simulator
+      - tvos-arm64
+      - tvos-simulator
+      - windows-x86_64
+      - windows-arm64
+      - android-arm64-v8a
+      - android-armeabi-v7a
+      - android-x86_64
+      - wasm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+
+      - name: Organize release layout
+        run: |
+          mkdir -p release/include
+          # 头文件只需一份
+          cp quickjs.h quickjs-libc.h release/include/
+
+          # 按平台分目录
+          declare -A MAP=(
+            ["libquickjs-linux-x86_64"]="linux/x86_64"
+            ["libquickjs-linux-aarch64"]="linux/aarch64"
+            ["libquickjs-linux-armv7"]="linux/armv7"
+            ["libquickjs-macos"]="macos"
+            ["libquickjs-ios-arm64"]="ios/arm64"
+            ["libquickjs-ios-simulator"]="ios/simulator"
+            ["libquickjs-tvos-arm64"]="tvos/arm64"
+            ["libquickjs-tvos-simulator"]="tvos/simulator"
+            ["libquickjs-windows-x86_64"]="windows/x86_64"
+            ["libquickjs-windows-arm64"]="windows/arm64"
+            ["libquickjs-android-arm64-v8a"]="android/arm64-v8a"
+            ["libquickjs-android-armeabi-v7a"]="android/armeabi-v7a"
+            ["libquickjs-android-x86_64"]="android/x86_64"
+            ["libquickjs-wasm"]="wasm"
+          )
+
+          for artifact in "${!MAP[@]}"; do
+            dest="release/${MAP[$artifact]}"
+            mkdir -p "$dest"
+            find "all-artifacts/$artifact" -name "*.a" -exec cp {} "$dest/" \;
+          done
+
+          # 写版本信息
+          echo "QuickJS $(cat VERSION) - $(date -u +%Y-%m-%d)" > release/VERSION.txt
+          echo "" >> release/VERSION.txt
+          echo "Platforms:" >> release/VERSION.txt
+          find release -name "*.a" | sort >> release/VERSION.txt
+          cat release/VERSION.txt
+
+      - name: Create zip
+        run: |
+          cd release
+          zip -r ../quickjs-prebuilt-all-platforms.zip .
+          cd ..
+          ls -lh quickjs-prebuilt-all-platforms.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quickjs-prebuilt-all-platforms
+          path: quickjs-prebuilt-all-platforms.zip
+          retention-days: 90
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: quickjs-prebuilt-all-platforms.zip
